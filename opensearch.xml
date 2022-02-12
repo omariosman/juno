@@ -4,7 +4,7 @@
   <ShortName>Juno docs</ShortName>
   <Description>Search Juno docs</Description>
   <InputEncoding>UTF-8</InputEncoding>
-  <Image width="16" height="16" type="image/x-icon">http://gojuno.xyz/img/favicon.ico</Image>
+  <Image width="16" height="16" type="image/x-icon">http://gojuno.xyz/img/juno.jpg</Image>
   <Url type="text/html" method="get" template="http://gojuno.xyz//search?q={searchTerms}"/>
   <Url type="application/opensearchdescription+xml" rel="self" template="http://gojuno.xyz//opensearch.xml" />
   <moz:SearchForm>http://gojuno.xyz//</moz:SearchForm>
