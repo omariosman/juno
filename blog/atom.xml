@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://gojuno.xyz/blog</id>
-    <title>Juno Documentation 🌠 Blog</title>
+    <title>Juno is awesome 🌠 Blog</title>
     <updated>2022-06-17T00:00:00.000Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://gojuno.xyz/blog"/>
-    <subtitle>Juno Documentation 🌠 Blog</subtitle>
+    <subtitle>Juno is awesome 🌠 Blog</subtitle>
     <icon>https://gojuno.xyz/img/juno_small.jpg</icon>
     <entry>
         <title type="html"><![CDATA[Welcome]]></title>
