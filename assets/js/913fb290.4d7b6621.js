@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkjuno_docs=self.webpackChunkjuno_docs||[]).push([[5997],{8993:s=>{s.exports=JSON.parse('{"allTagsPath":"/blog/tags","slug":"/blog/tags/juno","name":"juno","count":2,"permalink":"/blog/tags/juno"}')}}]);

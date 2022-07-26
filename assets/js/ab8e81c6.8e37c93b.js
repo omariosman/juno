@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkjuno_docs=self.webpackChunkjuno_docs||[]).push([[5123],{5352:s=>{s.exports=JSON.parse('{"allTagsPath":"/blog/tags","slug":"/blog/tags/pi","name":"pi","count":1,"permalink":"/blog/tags/pi"}')}}]);
