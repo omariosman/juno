@@ -8,10 +8,16 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	multiaddr "github.com/multiformats/go-multiaddr"
 	"gojuno.xyz/p2p/protocol/ping"
 )
+
+// XXX: The user agent string can probably be generated at compile time
+// using linker flags by reading the most recent Git tag.
+
+const userAgent = "juno/0.3.0"
 
 // KeyGenError records an error that occurred during key-pair
 // generation.
@@ -65,11 +71,17 @@ func New() (*Node, error) {
 			"/ip6/::/tcp/0",
 		),
 		libp2p.Transport(tcp.NewTCPTransport),
-		libp2p.UserAgent("juno/0.3.0"),
+		libp2p.UserAgent(userAgent),
+		libp2p.Ping(false),
 	)
 	if err != nil {
 		return nil, &InitError{err}
 	}
+
+	// /p2p/id/delta/1.0.0 does not appear to be part of the
+	// specification. See the following for details
+	// https://github.com/libp2p/specs/blob/master/identify/README.md.
+	host.RemoveStreamHandler(identify.IDDelta)
 
 	pp := ping.Register(host)
 
