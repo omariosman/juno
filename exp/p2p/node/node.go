@@ -2,12 +2,13 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	libp2p "github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	multiaddr "github.com/multiformats/go-multiaddr"
@@ -17,7 +18,14 @@ import (
 // XXX: The user agent string can probably be generated at compile time
 // using linker flags by reading the most recent Git tag.
 
-const userAgent = "juno/0.3.0"
+const (
+	userAgent       = "juno/0.3.0"
+	protocolVersion = "starknet/0.10.0"
+)
+
+// ErrProtocolMismatch represents an error where the peer does not
+// support the StarkNet protocol.
+var ErrProtocolMismatch = errors.New("p2p/node: protocol mismatch")
 
 // KeyGenError records an error that occurred during key-pair
 // generation.
@@ -72,6 +80,7 @@ func New() (*Node, error) {
 		),
 		libp2p.Transport(tcp.NewTCPTransport),
 		libp2p.UserAgent(userAgent),
+		libp2p.ProtocolVersion(protocolVersion),
 		libp2p.Ping(false),
 	)
 	if err != nil {
@@ -116,6 +125,18 @@ func (node *Node) connect(ma string) (*peer.AddrInfo, error) {
 
 	if err := node.host.Connect(context.Background(), *ai); err != nil {
 		return nil, err
+	}
+
+	// DEBUG.
+	// Assert that the peer follows the StarkNet protocol. A better
+	// implementation of this might use semantic versioning to determine
+	// the appropriate level of compatibility.
+	v, err := node.host.Peerstore().Get(ai.ID, "ProtocolVersion")
+	if err != nil {
+		return nil, err
+	}
+	if v != protocolVersion {
+		return nil, ErrProtocolMismatch
 	}
 
 	return ai, nil

@@ -17,7 +17,9 @@ func main() {
 	// ping requests.
 	if len(os.Args) > 1 {
 		// Connect to node and send ping request.
-		n.Ping(os.Args[1])
+		if err := n.Ping(os.Args[1]); err != nil {
+			panic("failed to execute ping: " + err.Error())
+		}
 	}
 
 	// DEBUG.

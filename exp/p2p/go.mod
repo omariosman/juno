@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	github.com/libp2p/go-libp2p v0.22.0
-	github.com/libp2p/go-libp2p-core v0.20.0
 	github.com/multiformats/go-multiaddr v0.6.0
 )
 
@@ -94,3 +93,6 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
 )
+
+// TODO: Resolve.
+replace github.com/libp2p/go-libp2p => /Users/tshaka/Desktop/libp2p
