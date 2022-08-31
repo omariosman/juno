@@ -107,6 +107,14 @@ func New() (*Node, error) {
 		fmt.Println(ma)
 	}
 
+	// DEBUG.
+	// The specification requires that nodes are able to connect using CID
+	// encoded multihashes. libp2p plans to move towards this in future
+	// versions but at time of writing both Go and Rust libraries still
+	// default to base58 encoding. On the wire communication is done over
+	// bytes so this distinction is largely immaterial.
+	println(peer.ToCid(host.ID()).String())
+
 	return &Node{host: host, pp: pp}, nil
 }
 
