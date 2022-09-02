@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/internal/db/transaction"
 
 	"github.com/NethermindEth/juno/internal/db"
-	. "github.com/NethermindEth/juno/internal/log"
 	"github.com/NethermindEth/juno/pkg/felt"
 	"github.com/NethermindEth/juno/pkg/jsonrpc"
 	"github.com/NethermindEth/juno/pkg/state"
@@ -30,16 +29,47 @@ type StarkNetRpc struct {
 }
 
 func New(stateManager state.StateManager, blockManager *block.Manager, txnManager *transaction.Manager,
-	synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine,
-) *StarkNetRpc {
-	return &StarkNetRpc{
+	synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine, logger *zap.SugaredLogger,
+) (*jsonrpc.JsonRpc, error) {
+	starkNetRpc := &StarkNetRpc{
 		stateManager: stateManager,
 		blockManager: blockManager,
 		txnManager:   txnManager,
 		synchronizer: synchronizer,
 		vm:           vm,
-		logger:       Logger.Named("RPC"),
+		logger:       logger,
 	}
+	jsonRpc := jsonrpc.NewJsonRpc()
+	handlers := []struct {
+		name       string
+		function   any
+		paramNames []string
+	}{
+		{"starknet_getBlockWithTxHashes", starkNetRpc.GetBlockWithTxHashes, []string{"block_id"}},
+		{"starknet_getBlockWithTxs", starkNetRpc.GetBlockWithTxs, []string{"block_id"}},
+		{"starknet_getStateUpdate", starkNetRpc.GetStateUpdate, []string{"block_id"}},
+		{"starknet_getStorageAt", starkNetRpc.GetStorageAt, []string{"contract_address", "key", "block_id"}},
+		{"starknet_getTransactionByHash", starkNetRpc.GetTransactionByHash, []string{"transaction_hash"}},
+		{"starknet_getTransactionByBlockIdAndIndex", starkNetRpc.GetTransactionByBlockIdAndIndex, []string{"block_id", "index"}},
+		{"starknet_getTransactionReceipt", starkNetRpc.GetTransactionReceipt, []string{"transaction_hash"}},
+		{"starknet_getClass", starkNetRpc.GetClass, []string{"class_hash"}},
+		{"starknet_getClassHashAt", starkNetRpc.GetClassHashAt, []string{"block_id", "address"}},
+		{"starknet_getBlockTransactionCount", starkNetRpc.GetBlockTransactionCount, []string{"block_id"}},
+		{"starknet_call", starkNetRpc.Call, []string{"block_id", "request"}},
+		{"starknet_estimateFee", starkNetRpc.EstimateFee, []string{"block_id", "request"}},
+		{"starknet_blockNumber", starkNetRpc.BlockNumber, nil},
+		{"starknet_blockHashAndNumber", starkNetRpc.BlockHashAndNumber, nil},
+		{"starknet_chainId", starkNetRpc.ChainId, nil},
+		{"starknet_pendingTransactions", starkNetRpc.PendingTransactions, nil},
+		{"starknet_protocolVersion", starkNetRpc.ProtocolVersion, nil},
+		{"starknet_syncing", starkNetRpc.Syncing, nil},
+	}
+	for _, handler := range handlers {
+		if err := jsonRpc.RegisterFunc(handler.name, handler.function, handler.paramNames...); err != nil {
+			return nil, err
+		}
+	}
+	return jsonRpc, nil
 }
 
 func (s *StarkNetRpc) GetBlockWithTxHashes(blockId *BlockId) (any, error) {

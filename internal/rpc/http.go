@@ -3,50 +3,77 @@ package rpc
 import (
 	"context"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"time"
 
-	. "github.com/NethermindEth/juno/internal/log"
+	"go.uber.org/zap"
+
 	"github.com/NethermindEth/juno/pkg/jsonrpc"
-	. "github.com/NethermindEth/juno/pkg/jsonrpc/providers/http"
 )
 
-type HttpRpc struct {
-	server   *http.Server
-	provider *HttpProvider
+type HttpRpc interface {
+	http.Handler
+	Run(chan<- error)
+	Close(duration time.Duration) error
 }
 
-func NewHttpRpc(addr, pattern string, rpc *jsonrpc.JsonRpc) (*HttpRpc, error) {
-	httpRpc := new(HttpRpc)
-	httpRpc.provider = NewHttpProvider(rpc)
-	mux := http.NewServeMux()
-	mux.Handle(pattern, httpRpc.provider)
-	httpRpc.server = &http.Server{Addr: addr, Handler: mux}
-	return httpRpc, nil
+type httpRpc struct {
+	server  *http.Server
+	address string
+	pattern string
+	rpc2    *jsonrpc.JsonRpc
+	logger  *zap.SugaredLogger
 }
 
-func (h *HttpRpc) ListenAndServe(errCh chan<- error) {
-	// notest
-	go h.listenAndServe(errCh)
-}
-
-func (h *HttpRpc) listenAndServe(errCh chan<- error) {
-	// notest
-	Logger.Info("Listening for JSON-RPC connections...")
-
-	// Since ListenAndServe always returns an error we need to ensure that there
-	// is no write to a closed channel. Therefore, we check for ErrServerClosed
-	// since that is only returned after ShutDown or Closed is called. Hence, no
-	// write to the channel is required. Otherwise, any other error is written
-	// which will cause the program to exit.
-	if err := h.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		errCh <- errors.New("Failed to ListenAndServe on Metrics server: " + err.Error())
+func NewHttpRpc(addr, pattern string, rpc *jsonrpc.JsonRpc, logger *zap.SugaredLogger) HttpRpc {
+	return &httpRpc{
+		address: addr,
+		pattern: pattern,
+		rpc2:    rpc,
+		logger:  logger,
 	}
-	close(errCh)
 }
 
-func (h *HttpRpc) Close(timeout time.Duration) error {
-	Logger.Info("Shutting down JSON-RPC server...")
+func (h *httpRpc) Run(errCh chan<- error) {
+	serverMux := http.NewServeMux()
+	serverMux.Handle(h.pattern, h)
+	h.server = &http.Server{Addr: h.address, Handler: serverMux}
+	go func() {
+		h.logger.Info("Listening for JSON-RPC connections on ", h.address)
+		if err := h.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- errors.New("Failed to ListenAndServe on RPC server: " + err.Error())
+		}
+		close(errCh)
+	}()
+}
+
+func (h *httpRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	response := h.rpc2.Call(body)
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(response)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *httpRpc) Close(timeout time.Duration) error {
+	h.logger.Info("Shutting down JSON-RPC server...")
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
 	return h.server.Shutdown(ctx)
 }
