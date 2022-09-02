@@ -31,6 +31,9 @@ func (r *rpcRequest) UnmarshalJSON(data []byte) error {
 	if rawRequest.Id != nil {
 		switch id := rawRequest.Id.(type) {
 		case string:
+			if id == "" {
+				return errInvalidRequest
+			}
 			r.Id = id
 		case json.Number:
 			intId, err := id.Int64()

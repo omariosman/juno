@@ -6,6 +6,7 @@ require (
 	github.com/bxcodec/faker v2.0.1+incompatible
 	github.com/consensys/gnark-crypto v0.7.0
 	github.com/ethereum/go-ethereum v1.10.21
+	github.com/golang/mock v1.4.4
 	github.com/google/go-cmp v0.5.8
 	github.com/leanovate/gopter v0.2.9
 	github.com/spf13/cobra v1.4.0
