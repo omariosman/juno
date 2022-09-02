@@ -60,8 +60,8 @@ type Node struct {
 
 	syncManager        *sync.Manager
 	stateManager       *state.Manager
-	transactionManager *transaction.Manager
-	blockManager       *block.Manager
+	transactionManager transaction.TransactionManager
+	blockManager       block.BlockManager
 
 	rpcServer     rpc.HttpRpc
 	metricsServer *prometheus.Server

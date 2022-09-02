@@ -21,14 +21,14 @@ import (
 
 type StarkNetRpc struct {
 	stateManager state.StateManager
-	blockManager *block.Manager
-	txnManager   *transaction.Manager
+	blockManager block.BlockManager
+	txnManager   transaction.TransactionManager
 	synchronizer *sync2.Synchronizer
 	vm           *cairovm.VirtualMachine
 	logger       *zap.SugaredLogger
 }
 
-func New(stateManager state.StateManager, blockManager *block.Manager, txnManager *transaction.Manager,
+func New(stateManager state.StateManager, blockManager block.BlockManager, txnManager transaction.TransactionManager,
 	synchronizer *sync2.Synchronizer, vm *cairovm.VirtualMachine, logger *zap.SugaredLogger,
 ) (*jsonrpc.JsonRpc, error) {
 	starkNetRpc := &StarkNetRpc{

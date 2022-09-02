@@ -49,9 +49,9 @@ type Synchronizer struct {
 	// manager is the sync manager.
 	syncManager *sync.Manager
 	// blockManager represent the manager that store and serve the blocks
-	blockManager *blockDB.Manager
+	blockManager blockDB.BlockManager
 	// transactionManager represent the manager that store and serve the transactions and receipts
-	transactionManager *transaction.Manager
+	transactionManager transaction.TransactionManager
 	// stateManager represent the manager for the state
 	stateManager state.StateManager
 
@@ -62,8 +62,8 @@ type Synchronizer struct {
 // NewSynchronizer creates a new Synchronizer.
 // notest
 func NewSynchronizer(n utils.Network, ethNode string, feederClient *feeder.Client,
-	syncManager *sync.Manager, stateManager state.StateManager, blockManager *blockDB.Manager,
-	transactionManager *transaction.Manager,
+	syncManager *sync.Manager, stateManager state.StateManager, blockManager blockDB.BlockManager,
+	transactionManager transaction.TransactionManager,
 ) *Synchronizer {
 	synchro := &Synchronizer{
 		logger: Logger.Named("Sync Service"),

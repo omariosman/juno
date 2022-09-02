@@ -128,7 +128,7 @@ type BlockWithTxs struct {
 	BlockBodyWithTxs
 }
 
-func NewBlockWithTxs(block *types.Block, txnManager *transaction.Manager) (*BlockWithTxs, error) {
+func NewBlockWithTxs(block *types.Block, txnManager transaction.TransactionManager) (*BlockWithTxs, error) {
 	txns := make([]Txn, block.TxCount)
 	for i, txHash := range block.TxHashes {
 		tx, err := txnManager.GetTransaction(txHash)

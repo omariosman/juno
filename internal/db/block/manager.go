@@ -9,19 +9,25 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Manager is a Block database manager to save and search the blocks.
-type Manager struct {
+type BlockManager interface {
+	GetBlockByHash(blockHash *felt.Felt) (*types.Block, error)
+	GetBlockByNumber(blockNumber uint64) (*types.Block, error)
+	PutBlock(blockHash *felt.Felt, block *types.Block) error
+	Close()
+}
+
+// manager is a Block database manager to save and search the blocks.
+type manager struct {
 	database db.Database
 }
 
-// NewManager returns a new Block manager using the given database.
-func NewManager(database db.Database) *Manager {
-	return &Manager{database: database}
+func NewManager(database db.Database) BlockManager {
+	return &manager{database: database}
 }
 
 // GetBlockByHash search the block with the given block hash. If the block does
 // not exist then returns nil. If any error happens, then panic.
-func (manager *Manager) GetBlockByHash(blockHash *felt.Felt) (*types.Block, error) {
+func (manager *manager) GetBlockByHash(blockHash *felt.Felt) (*types.Block, error) {
 	// Build the hash key
 	hashKey := buildHashKey(blockHash)
 	// Search on the database
@@ -39,7 +45,7 @@ func (manager *Manager) GetBlockByHash(blockHash *felt.Felt) (*types.Block, erro
 
 // GetBlockByNumber search the block with the given block number. If the block
 // does not exist then returns nil. If any error happens, then panic.
-func (manager *Manager) GetBlockByNumber(blockNumber uint64) (*types.Block, error) {
+func (manager *manager) GetBlockByNumber(blockNumber uint64) (*types.Block, error) {
 	// Build the number key
 	numberKey := buildNumberKey(blockNumber)
 	// Search for the hash key
@@ -62,7 +68,7 @@ func (manager *Manager) GetBlockByNumber(blockNumber uint64) (*types.Block, erro
 
 // PutBlock saves the given block with the given hash as key. If any error happens
 // then panic.
-func (manager *Manager) PutBlock(blockHash *felt.Felt, block *types.Block) error {
+func (manager *manager) PutBlock(blockHash *felt.Felt, block *types.Block) error {
 	// Build the keys
 	hashKey := buildHashKey(blockHash)
 	numberKey := buildNumberKey(block.BlockNumber)
@@ -85,7 +91,7 @@ func (manager *Manager) PutBlock(blockHash *felt.Felt, block *types.Block) error
 	return nil
 }
 
-func (manager *Manager) Close() {
+func (manager *manager) Close() {
 	manager.database.Close()
 }
 

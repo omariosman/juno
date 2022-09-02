@@ -91,7 +91,7 @@ var txs = []types.IsTransaction{
 	},
 }
 
-func initManager(t *testing.T) *Manager {
+func initManager(t *testing.T) TransactionManager {
 	env, err := db.NewMDBXEnv(t.TempDir(), 2, 0)
 	if err != nil {
 		t.Error(err)

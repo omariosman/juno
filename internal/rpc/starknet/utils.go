@@ -34,7 +34,7 @@ func isStorageKey(s string) bool {
 	return storageKeyRegexp.MatchString(s)
 }
 
-func getBlockById(blockId *BlockId, blockManager *block.Manager, logger *zap.SugaredLogger) (block *types.Block, err error) {
+func getBlockById(blockId *BlockId, blockManager block.BlockManager, logger *zap.SugaredLogger) (block *types.Block, err error) {
 	if blockId == nil {
 		return nil, InvalidBlockId
 	}

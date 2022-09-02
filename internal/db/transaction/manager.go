@@ -9,16 +9,21 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Manager manages all the related to the database of Transactions. All the
-// communications with the transactions' database must be made with this manager.
-// Transactions can have two types: DeployTransaction and InvokeFunctionTransaction.
+type TransactionManager interface {
+	PutTransaction(txHash *felt.Felt, tx types.IsTransaction) error
+	GetTransaction(txHash *felt.Felt) (types.IsTransaction, error)
+	PutReceipt(txHash *felt.Felt, txReceipt types.TxnReceipt) error
+	GetReceipt(txHash *felt.Felt) (types.TxnReceipt, error)
+	Close()
+}
+
 type Manager struct {
 	txDb      db.Database
 	receiptDb db.Database
 }
 
-// NewManager returns a new instance of the Manager.
-func NewManager(txDb, receiptDb db.Database) *Manager {
+// NewManager returns a new instance of the TransactionManager.
+func NewManager(txDb, receiptDb db.Database) TransactionManager {
 	return &Manager{txDb, receiptDb}
 }
 
