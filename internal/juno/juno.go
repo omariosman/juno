@@ -232,7 +232,6 @@ func starkNetJsonRPC(stateManager *state.Manager, blockManager *block.Manager,
 		{"starknet_blockHashAndNumber", starkNetApi.BlockHashAndNumber, nil},
 		{"starknet_chainId", starkNetApi.ChainId, nil},
 		{"starknet_pendingTransactions", starkNetApi.PendingTransactions, nil},
-		{"starknet_protocolVersion", starkNetApi.ProtocolVersion, nil},
 		{"starknet_syncing", starkNetApi.Syncing, nil},
 		{"starknet_healthCheck", starkNetApi.HealthCheck, nil},
 	}

@@ -256,10 +256,6 @@ func (s *StarkNetRpc) PendingTransactions() (any, error) {
 	return s.synchronizer.GetPendingBlock().Transactions, nil
 }
 
-func (s *StarkNetRpc) ProtocolVersion() (any, error) {
-	return "0", nil
-}
-
 func (s *StarkNetRpc) Syncing() (any, error) {
 	if s.synchronizer.Running {
 		return s.synchronizer.Status(), nil
