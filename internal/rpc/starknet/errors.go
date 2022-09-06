@@ -22,9 +22,9 @@ var (
 		Code:    22,
 		Message: "Invalid call data",
 	}
-	InvalidBlockId = StarkNetError{
+	BlockNotFound = StarkNetError{
 		Code:    24,
-		Message: "Invalid block id",
+		Message: "Block not found",
 	}
 	InvalidTxnHash = StarkNetError{
 		Code:    25,

@@ -36,7 +36,7 @@ func isStorageKey(s string) bool {
 
 func getBlockById(blockId *BlockId, blockManager *block.Manager, logger *zap.SugaredLogger) (block *types.Block, err error) {
 	if blockId == nil {
-		return nil, InvalidBlockId
+		return nil, BlockNotFound
 	}
 	switch blockId.idType {
 	case blockIdHash:
@@ -48,11 +48,11 @@ func getBlockById(blockId *BlockId, blockManager *block.Manager, logger *zap.Sug
 	case blockIdTag:
 		return nil, errors.New("not implemented")
 	default:
-		return nil, InvalidBlockId
+		return nil, BlockNotFound
 	}
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
-			return nil, InvalidBlockId
+			return nil, BlockNotFound
 		}
 		logger.With("err", err).Errorf("failed to get block with id: %v", blockId)
 		return nil, jsonrpc.NewInternalError(err.Error())
