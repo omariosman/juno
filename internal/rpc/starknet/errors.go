@@ -26,9 +26,9 @@ var (
 		Code:    24,
 		Message: "Block not found",
 	}
-	InvalidTxnHash = StarkNetError{
+	TxnHashNotFound = StarkNetError{
 		Code:    25,
-		Message: "Invalid txn hash",
+		Message: "Transaction hash not found",
 	}
 	InvalidTxnIndex = StarkNetError{
 		Code:    27,

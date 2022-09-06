@@ -94,7 +94,7 @@ func (s *StarkNetRpc) GetTransactionByHash(transactionHash *RpcFelt) (any, error
 	tx, err := s.txnManager.GetTransaction(transactionHash.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
-			return nil, InvalidTxnHash
+			return nil, TxnHashNotFound
 		}
 		s.logger.Errorw(err.Error(), "function", "GetTransactionByHash")
 		return nil, jsonrpc.NewInternalError(err.Error())
@@ -123,7 +123,7 @@ func (s *StarkNetRpc) GetTransactionReceipt(transactionHash *RpcFelt) (any, erro
 	receipt, err := s.txnManager.GetReceipt(transactionHash.Felt())
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
-			return nil, InvalidTxnHash
+			return nil, TxnHashNotFound
 		}
 		s.logger.Errorw(err.Error(), "function", "GetTransactionReceipt")
 		return nil, jsonrpc.NewInternalError(err.Error())
