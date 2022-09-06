@@ -18,10 +18,11 @@ import (
 	"flag"
 
 	"gojuno.xyz/p2p/node"
+	"gojuno.xyz/p2p/protocol/ping"
 )
 
 func main() {
-	peer := flag.Bool("peer", false, "init secondary node that will exec. ping")
+	peer := flag.Bool("peer", false, "init secondary node that will execute ping")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -31,6 +32,9 @@ func main() {
 	if err != nil {
 		panic("p2p/main: new node: " + err.Error())
 	}
+
+	// Register ping protocol.
+	pp := ping.Register(n.Host)
 
 	// Discover a peer.
 	// TODO: The discovery topic should be configured as
@@ -47,7 +51,7 @@ func main() {
 	// ping requests.
 	if *peer {
 		// Connect to node and send ping request.
-		if err := n.Ping(ctx, pi); err != nil {
+		if err := pp.Ping(ctx, pi); err != nil {
 			panic("p2p/main: ping: " + err.Error())
 		}
 	}

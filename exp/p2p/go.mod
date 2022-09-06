@@ -2,10 +2,7 @@ module gojuno.xyz/p2p
 
 go 1.19
 
-require (
-	github.com/libp2p/go-libp2p v0.22.0
-	github.com/multiformats/go-multiaddr v0.6.0
-)
+require github.com/libp2p/go-libp2p v0.22.0
 
 require (
 	github.com/google/uuid v1.3.0 // indirect
@@ -21,6 +18,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.20.0 // indirect
 	github.com/libp2p/go-libp2p-kbucket v0.4.7 // indirect
 	github.com/libp2p/go-libp2p-record v0.2.0 // indirect
+	github.com/multiformats/go-multiaddr v0.6.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/polydawn/refmt v0.0.0-20190807091052-3d65705ee9f1 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect

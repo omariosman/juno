@@ -13,8 +13,6 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	discoveryutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
-	"gojuno.xyz/p2p/gossip"
-	"gojuno.xyz/p2p/protocol/ping"
 )
 
 // XXX: The user agent string can probably be generated at compile time
@@ -59,9 +57,7 @@ func (e *InitError) Unwrap() error {
 
 // Node represents a node on the StarkNet peer-to-peer network.
 type Node struct {
-	host host.Host
-	gs   *gossip.Gossip
-	pp   *ping.Protocol
+	Host host.Host
 }
 
 // New creates a new StarkNet node.
@@ -80,7 +76,8 @@ func New(ctx context.Context) (*Node, error) {
 	// everything else, use defaults.
 	host, err := libp2p.New(
 		// DEBUG.
-		// See above. Also avoid configuring the network for now.
+		// See above. Also avoid configuring the networking protocols for
+		// now.
 		/*
 			libp2p.Identity(pvt),
 			libp2p.ListenAddrStrings(
@@ -122,15 +119,13 @@ func New(ctx context.Context) (*Node, error) {
 	// bytes so this distinction is largely immaterial.
 	// println("p2p/node: cid encoded address: peer.ToCid(host.ID()).String())
 
-	pp := ping.Register(host)
-
-	return &Node{host: host, pp: pp}, nil
+	return &Node{Host: host}, nil
 }
 
 // connect connects to a peer with address information pi and returns an
 // error otherwise.
 func (n *Node) connect(ctx context.Context, pi peer.AddrInfo) error {
-	if err := n.host.Connect(ctx, pi); err != nil {
+	if err := n.Host.Connect(ctx, pi); err != nil {
 		return err
 	}
 
@@ -138,7 +133,7 @@ func (n *Node) connect(ctx context.Context, pi peer.AddrInfo) error {
 	// Assert that the peer follows the StarkNet protocol. A better
 	// implementation of this might use semantic versioning to determine
 	// the appropriate level of compatibility.
-	v, err := n.host.Peerstore().Get(pi.ID, "ProtocolVersion")
+	v, err := n.Host.Peerstore().Get(pi.ID, "ProtocolVersion")
 	if err != nil {
 		return err
 	}
@@ -152,7 +147,7 @@ func (n *Node) connect(ctx context.Context, pi peer.AddrInfo) error {
 // newTable creates a new distributed hash table and connects to one of
 // the IPFS bootstrap nodes.
 func (n *Node) newTable(ctx context.Context) (*dht.IpfsDHT, error) {
-	table, err := dht.New(ctx, n.host)
+	table, err := dht.New(ctx, n.Host)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +161,7 @@ func (n *Node) newTable(ctx context.Context) (*dht.IpfsDHT, error) {
 		wg.Add(1)
 		go func(pi peer.AddrInfo) {
 			defer wg.Done()
-			if err := n.host.Connect(ctx, pi); err != nil {
+			if err := n.Host.Connect(ctx, pi); err != nil {
 				// DEBUG.
 				// There are multiple bootstrap nodes that one will attempt to
 				// connect to so it should not be an issue if one of those
@@ -199,7 +194,7 @@ func (n *Node) Discover(ctx context.Context, topic string) (peer.ID, error) {
 
 		for peer := range ch {
 			// Ignore ids that reference this node.
-			if peer.ID == n.host.ID() {
+			if peer.ID == n.Host.ID() {
 				continue
 			}
 
@@ -217,10 +212,4 @@ func (n *Node) Discover(ctx context.Context, topic string) (peer.ID, error) {
 			return peer.ID, nil
 		}
 	}
-}
-
-// Ping sends a ping request to the node with peerId pi.
-// NOTE: This is not the standard libp2p ping protocol.
-func (node *Node) Ping(ctx context.Context, pi peer.ID) error {
-	return node.pp.Ping(ctx, pi)
 }
