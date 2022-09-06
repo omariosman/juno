@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	libp2p "github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/core/crypto"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	discoveryutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
-	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"gojuno.xyz/p2p/gossip"
 	"gojuno.xyz/p2p/protocol/ping"
 )
 
@@ -58,27 +60,35 @@ func (e *InitError) Unwrap() error {
 // Node represents a node on the StarkNet peer-to-peer network.
 type Node struct {
 	host host.Host
+	gs   *gossip.Gossip
 	pp   *ping.Protocol
 }
 
-// New creates a new StarkNet node and prints its addresses to standard
-// output. This is a temporary measure in the absence of a discovery
-// protocol.
-func New() (*Node, error) {
-	pvt, _, err := crypto.GenerateKeyPair(crypto.Ed25519, -1 /* not applicable */)
-	if err != nil {
-		return nil, &KeyGenError{err}
-	}
+// New creates a new StarkNet node.
+func New(ctx context.Context) (*Node, error) {
+	// DEBUG.
+	// While the specification requires that only Ed25519 keys are used,
+	// the mainline IPFS DHT and default IPFS bootstrap nodes that are
+	// used in the current discovery protocol use RSA keys so for now skip
+	// key configuration.
+	// pvt, _, err := crypto.GenerateKeyPair(crypto.Ed25519, -1 /* not applicable */)
+	// if err != nil {
+	// 	return nil, &KeyGenError{err}
+	// }
 
 	// Configure the host using parameters in the specification. For
 	// everything else, use defaults.
 	host, err := libp2p.New(
-		libp2p.Identity(pvt),
-		libp2p.ListenAddrStrings(
-			"/ip4/0.0.0.0/tcp/0",
-			"/ip6/::/tcp/0",
-		),
-		libp2p.Transport(tcp.NewTCPTransport),
+		// DEBUG.
+		// See above. Also avoid configuring the network for now.
+		/*
+			libp2p.Identity(pvt),
+			libp2p.ListenAddrStrings(
+				"/ip4/0.0.0.0/tcp/0",
+				"/ip6/::/tcp/0",
+			),
+			libp2p.Transport(tcp.NewTCPTransport),
+		*/
 		libp2p.UserAgent(userAgent),
 		libp2p.ProtocolVersion(protocolVersion),
 		libp2p.Ping(false),
@@ -92,12 +102,9 @@ func New() (*Node, error) {
 	// https://github.com/libp2p/specs/blob/master/identify/README.md.
 	host.RemoveStreamHandler(identify.IDDelta)
 
-	pp := ping.Register(host)
-
 	// DEBUG.
 	// Encode address information to multiaddr and print them to standard
-	// output so that that the peer can be setup to connect to this node
-	// using said addresses in the absence of a discovery mechanism.
+	// output for debugging purposes.
 	ai := peer.AddrInfo{ID: host.ID(), Addrs: host.Addrs()}
 	addrs, err := peer.AddrInfoToP2pAddrs(&ai)
 	if err != nil {
@@ -113,52 +120,107 @@ func New() (*Node, error) {
 	// versions but at time of writing both Go and Rust libraries still
 	// default to base58 encoding. On the wire communication is done over
 	// bytes so this distinction is largely immaterial.
-	println(peer.ToCid(host.ID()).String())
+	// println("p2p/node: cid encoded address: peer.ToCid(host.ID()).String())
+
+	pp := ping.Register(host)
 
 	return &Node{host: host, pp: pp}, nil
 }
 
-// connect connects to a peer with the multiaddress string given and
-// returns its peer information.
-func (node *Node) connect(ma string) (*peer.AddrInfo, error) {
-	addr, err := multiaddr.NewMultiaddr(ma)
-	if err != nil {
-		return nil, err
-	}
-
-	ai, err := peer.AddrInfoFromP2pAddr(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := node.host.Connect(context.Background(), *ai); err != nil {
-		return nil, err
+// connect connects to a peer with address information pi and returns an
+// error otherwise.
+func (n *Node) connect(ctx context.Context, pi peer.AddrInfo) error {
+	if err := n.host.Connect(ctx, pi); err != nil {
+		return err
 	}
 
 	// DEBUG.
 	// Assert that the peer follows the StarkNet protocol. A better
 	// implementation of this might use semantic versioning to determine
 	// the appropriate level of compatibility.
-	v, err := node.host.Peerstore().Get(ai.ID, "ProtocolVersion")
-	if err != nil {
-		return nil, err
-	}
-	if v != protocolVersion {
-		return nil, ErrProtocolMismatch
-	}
-
-	return ai, nil
-}
-
-// Ping connects to a peer using the given multiaddress and sends a ping
-// request.
-func (node *Node) Ping(peer string) error {
-	pi, err := node.connect(peer)
+	v, err := n.host.Peerstore().Get(pi.ID, "ProtocolVersion")
 	if err != nil {
 		return err
 	}
-
-	node.pp.Ping(context.Background(), pi.ID)
+	if v != protocolVersion {
+		return ErrProtocolMismatch
+	}
 
 	return nil
+}
+
+// newTable creates a new distributed hash table and connects to one of
+// the IPFS bootstrap nodes.
+func (n *Node) newTable(ctx context.Context) (*dht.IpfsDHT, error) {
+	table, err := dht.New(ctx, n.host)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := table.Bootstrap(ctx); err != nil {
+		return nil, err
+	}
+
+	var wg sync.WaitGroup
+	for _, addr := range dht.GetDefaultBootstrapPeerAddrInfos() {
+		wg.Add(1)
+		go func(pi peer.AddrInfo) {
+			defer wg.Done()
+			if err := n.host.Connect(ctx, pi); err != nil {
+				// DEBUG.
+				// There are multiple bootstrap nodes that one will attempt to
+				// connect to so it should not be an issue if one of those
+				// fails.
+				fmt.Println("p2p/node: bootstrap connection:", err)
+			}
+		}(addr)
+	}
+	wg.Wait()
+
+	return table, nil
+}
+
+// Discover finds peers to connect to that are subscribed to a given
+// (discovery) topic.
+func (n *Node) Discover(ctx context.Context, topic string) (peer.ID, error) {
+	table, err := n.newTable(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	discovery := routing.NewRoutingDiscovery(table)
+	discoveryutil.Advertise(ctx, discovery, topic)
+
+	for {
+		ch, err := discovery.FindPeers(ctx, topic)
+		if err != nil {
+			return "", err
+		}
+
+		for peer := range ch {
+			// Ignore ids that reference this node.
+			if peer.ID == n.host.ID() {
+				continue
+			}
+
+			if err := n.connect(ctx, peer); err != nil {
+				// DEBUG.
+				// There are multiple peers the node will attempt to connect to
+				// and it is fine if either one of those attempts fail as long
+				// as one succeeds.
+				fmt.Println("p2p/node: peer connection:", err)
+				continue
+			}
+
+			// DEBUG.
+			fmt.Println("p2p/node: connected:", peer.ID.String())
+			return peer.ID, nil
+		}
+	}
+}
+
+// Ping sends a ping request to the node with peerId pi.
+// NOTE: This is not the standard libp2p ping protocol.
+func (node *Node) Ping(ctx context.Context, pi peer.ID) error {
+	return node.pp.Ping(ctx, pi)
 }

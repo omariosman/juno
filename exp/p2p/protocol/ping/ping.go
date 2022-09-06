@@ -22,7 +22,7 @@ const (
 const (
 	// pingLen is the size of a single ping message in bytes.
 	pingLen = 4
-	timeOut = time.Minute
+	timeOut = 30 * time.Second
 )
 
 // Protocol represents a ping protocol.
@@ -60,7 +60,9 @@ func (p *Protocol) pong(s network.Stream) error {
 	}
 	defer s.Scope().ReleaseMemory(pingLen)
 
-	_ = s.SetReadDeadline(time.Now().Add(timeOut))
+	// NOTE: There is a ping timeout and ping duration. See the following
+	// PR for details https://github.com/libp2p/go-libp2p/pull/1358.
+	s.SetReadDeadline(time.Now().Add(timeOut))
 
 	// XXX: Use sync.Pool?
 	msg := make([]byte, pingLen)
@@ -78,15 +80,8 @@ func (p *Protocol) pong(s network.Stream) error {
 	return err
 }
 
-// Ping contains the logic of what happens when a peer sends a ping
-// request.
-func (p *Protocol) Ping(ctx context.Context, peer peer.ID) {
-	if err := p.ping(ctx, peer); err != nil {
-		return
-	}
-}
-
-func (p *Protocol) ping(ctx context.Context, peer peer.ID) error {
+// Ping sends a ping request to the peer with peerId pi.
+func (p *Protocol) Ping(ctx context.Context, peer peer.ID) error {
 	s, err := p.host.NewStream(context.Background(), peer, id)
 	if err != nil {
 		return err
