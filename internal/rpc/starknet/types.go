@@ -544,19 +544,31 @@ type StorageDiffItem struct {
 	Value   string `json:"value"`
 }
 
+type KeyValue struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type ContractStorageDiffItem struct {
+	Address        string     `json:"address"`
+	StorageEntries []KeyValue `json:"storage_entries"`
+}
+
 type DeployedContractItem struct {
 	Address   string `json:"address"`
 	ClassHash string `json:"class_hash"`
 }
 
-type DeclatedContractItem struct {
-	ClassHash string `json:"class_hash"`
+type AddressNonce struct {
+	Address string `json:"address"`
+	Nonce   string `json:"nonce"`
 }
 
 type StateDiff struct {
-	StorageDiffs      []*StorageDiffItem      `json:"storage_diffs"`
-	DeployedContracts []*DeployedContractItem `json:"deployed_contracts"`
-	DeclaredContracts []*DeclatedContractItem `json:"declared_contracts"`
+	StorageDiffs           []*ContractStorageDiffItem `json:"storage_diffs"`
+	DeclaredContractHashes []string                   `json:"declared_contract_hashes"`
+	DeployedContracts      []*DeployedContractItem    `json:"deployed_contracts"`
+	Nonces                 []*AddressNonce            `json:"nonces"`
 }
 
 type StateUpdate struct {
@@ -568,29 +580,33 @@ type StateUpdate struct {
 
 func NewStateUpdate(s *types.StateUpdate) *StateUpdate {
 	stateDiff := &StateDiff{
-		StorageDiffs:      make([]*StorageDiffItem, 0, len(s.StorageDiff)),
-		DeployedContracts: make([]*DeployedContractItem, len(s.DeployedContracts)),
-		DeclaredContracts: make([]*DeclatedContractItem, len(s.DeclaredContracts)),
+		StorageDiffs:           make([]*ContractStorageDiffItem, 0, len(s.StorageDiff)),
+		DeployedContracts:      make([]*DeployedContractItem, 0, len(s.DeployedContracts)),
+		DeclaredContractHashes: make([]string, 0, len(s.DeclaredContracts)),
+		// TODO: Nonces needs to be implemented on the core first
+		Nonces: make([]*AddressNonce, 0),
 	}
 	for address, diffs := range s.StorageDiff {
-		for _, diff := range diffs {
-			stateDiff.StorageDiffs = append(stateDiff.StorageDiffs, &StorageDiffItem{
-				Address: address.Hex0x(),
-				Key:     diff.Address.Hex0x(),
-				Value:   diff.Value.Hex0x(),
+		item := &ContractStorageDiffItem{
+			Address:        address.Hex0x(),
+			StorageEntries: make([]KeyValue, 0, len(diffs)),
+		}
+		for _, memoryCell := range diffs {
+			item.StorageEntries = append(item.StorageEntries, KeyValue{
+				Key:   memoryCell.Address.Hex0x(),
+				Value: memoryCell.Value.Hex0x(),
 			})
 		}
+		stateDiff.StorageDiffs = append(stateDiff.StorageDiffs, item)
 	}
-	for i, deployedContract := range s.DeployedContracts {
-		stateDiff.DeployedContracts[i] = &DeployedContractItem{
+	for _, deployedContract := range s.DeployedContracts {
+		stateDiff.DeployedContracts = append(stateDiff.DeployedContracts, &DeployedContractItem{
 			Address:   deployedContract.Address.Hex0x(),
 			ClassHash: deployedContract.Hash.Hex0x(),
-		}
+		})
 	}
-	for i, declaredContract := range s.DeclaredContracts {
-		stateDiff.DeclaredContracts[i] = &DeclatedContractItem{
-			ClassHash: declaredContract.Hex0x(),
-		}
+	for _, declaredContract := range s.DeclaredContracts {
+		stateDiff.DeclaredContractHashes = append(stateDiff.DeclaredContractHashes, declaredContract.Hex0x())
 	}
 	return &StateUpdate{
 		BlockHash: s.BlockHash.Hex0x(),
