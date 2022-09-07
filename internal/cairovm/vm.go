@@ -3,14 +3,12 @@ package cairovm
 import (
 	"context"
 	_ "embed"
+	"github.com/NethermindEth/juno/internal/log"
 	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
-
-	"github.com/NethermindEth/juno/internal/log"
 
 	vmrpc2 "github.com/NethermindEth/juno/internal/cairovm/vmrpc"
 
@@ -67,8 +65,8 @@ func New(stateManager *statedb.Manager) *VirtualMachine {
 	return &VirtualMachine{
 		rpcNet:         "tcp",
 		manager:        stateManager,
-		rpcVMAddr:      "localhost:" + strconv.Itoa(ports[0]),
-		rpcStorageAddr: "localhost:" + strconv.Itoa(ports[1]),
+		rpcVMAddr:      "localhost:53608",
+		rpcStorageAddr: "localhost:53609",
 		logger:         log.Logger.Named("VM"),
 	}
 }
@@ -124,6 +122,7 @@ func (s *VirtualMachine) Run(dataDir string) error {
 		s.logger.Errorf("failed to start python vm rpc: %v", err)
 		return err
 	}
+	s.logger.Debugf("Started Python gRPC server listening at %v", s.rpcStorageAddr)
 
 	// Start the Go gRPC server (serving storage).
 	lis, err := net.Listen(s.rpcNet, s.rpcStorageAddr)
@@ -136,7 +135,8 @@ func (s *VirtualMachine) Run(dataDir string) error {
 
 	// Run the gRPC server.
 	go func() {
-		s.logger.Infof("gRPC server listening at %v", lis.Addr())
+		s.logger.Debugf("Started Go gRPC server listening at %v", s.rpcVMAddr)
+		s.logger.Info("Starting Virtual Machine")
 		if err := s.rpcServer.Serve(lis); err != nil {
 			// notest
 			s.logger.Errorf("failed to serve: %v", err)

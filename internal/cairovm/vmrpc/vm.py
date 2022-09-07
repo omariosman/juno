@@ -3,11 +3,11 @@ import sys
 import traceback
 
 import grpc
+from services.everest.business_logic.state import StateSelectorBase
 from starkware.cairo.lang.vm import crypto
+from starkware.starknet.business_logic.fact_state.state import SharedState
 from starkware.starknet.business_logic.state.state import (
     BlockInfo,
-    SharedState,
-    StateSelector,
 )
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.testing.state import StarknetState
@@ -41,22 +41,23 @@ async def call(
         selector=None,
         sequencer=None,
 ):
-    shared_state = SharedState(
-        contract_states=PatriciaTree(root=root, height=251),
-        block_info=BlockInfo.empty(sequencer_address=sequencer),
-    )
+    shared_state = SharedState().empty(FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func),
+                                       general_config=StarknetGeneralConfig())
+    shared_state.to_
+    contract_states = PatriciaTree(root=root, height=251),
+    block_info = BlockInfo.empty(sequencer_address=sequencer),
+    from starkware.starknet.business_logic.fact_state.contract_state_objects import StateSelector
     carried_state = await shared_state.get_filled_carried_state(
         ffc=FactFetchingContext(storage=adapter, hash_func=crypto.pedersen_hash_func),
         state_selector=StateSelector(
             contract_addresses={contract_address}, class_hashes={class_hash}
         ),
     )
-    state = StarknetState(state=carried_state, general_config=StarknetGeneralConfig())
-    result = await state.call_raw(
+    state = StarknetState(carried_state, general_config=StarknetGeneralConfig())
+    result = await state.invoke_raw(
         contract_address=contract_address,
         selector=selector,
         calldata=calldata,
-        caller_address=caller_address,
         max_fee=0,
     )
     return result[0].retdata
@@ -150,4 +151,4 @@ async def serve(listen_address: str, juno_address: str) -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(serve(sys.argv[1], sys.argv[2]))
+    asyncio.run(serve("localhost:53608", "localhost:53609"))
