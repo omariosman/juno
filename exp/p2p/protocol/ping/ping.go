@@ -72,7 +72,7 @@ func (p *Protocol) pong(s network.Stream) error {
 	}
 
 	// DEBUG.
-	fmt.Printf("Read: %s.\n", msg)
+	fmt.Printf("p2p/ping: read: %s\n", msg)
 
 	// Write back to stream.
 	_, err = s.Write([]byte("PONG"))
@@ -101,7 +101,7 @@ func (p *Protocol) Ping(ctx context.Context, peer peer.ID) error {
 	}
 
 	// DEBUG.
-	fmt.Printf("Read: %s.\n", msg)
+	fmt.Printf("p2p/ping: read: %s\n", msg)
 
 	return nil
 }

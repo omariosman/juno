@@ -13,6 +13,7 @@ import (
 // Gossip represents a pubsub topic where messages are distributed using
 // the gossip protocol.
 type Gossip struct {
+	host         host.Host
 	topic        *pubsub.Topic
 	subscription *pubsub.Subscription
 }
@@ -34,7 +35,7 @@ func New(ctx context.Context, h host.Host, topic string) (*Gossip, error) {
 		return nil, err
 	}
 
-	return &Gossip{topic: handle, subscription: subscription}, nil
+	return &Gossip{host: h, topic: handle, subscription: subscription}, nil
 }
 
 // Publish publishes a message to a given topic.
@@ -42,13 +43,20 @@ func (g *Gossip) Publish(ctx context.Context, msg []byte) error {
 	return g.topic.Publish(ctx, msg)
 }
 
-// Listen listens for messages on a given topic.
+// Listen listens for messages on a given topic. It will, however,
+// ignore messages emanating from the host.
 func (g *Gossip) Listen(ctx context.Context) error {
 	for {
 		msg, err := g.subscription.Next(ctx)
 		if err != nil {
 			return err
 		}
+
+		// Ignore messages published by this node.
+		if msg.ReceivedFrom == g.host.ID() {
+			continue
+		}
+
 		// TODO: Handle message received.
 		fmt.Println("p2p/gossip: message received:", string(msg.Data))
 	}
