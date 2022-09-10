@@ -337,6 +337,9 @@ func TestState(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+		if err := storage.Commit(); err != nil {
+			t.Fatal(err)
+		}
 
 		key := new(felt.Felt).SetHex(addr)
 		val := pedersen.Digest(
@@ -350,6 +353,9 @@ func TestState(t *testing.T) {
 		if err := state.Put(key, val); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err := state.Commit(); err != nil {
+		t.Fatal(err)
 	}
 
 	got := state.Root()

@@ -13,6 +13,7 @@ const (
 
 type State interface {
 	Root() *felt.Felt
+	CommitStateTrie() error
 	GetContractState(address *felt.Felt) (*ContractState, error)
 	GetContract(address *felt.Felt) (*types.Contract, error)
 	SetContract(address *felt.Felt, hash *felt.Felt, code *types.Contract) error
@@ -43,6 +44,10 @@ func New(manager StateManager, root *felt.Felt) State {
 
 func (st *state) Root() *felt.Felt {
 	return st.stateTrie.Root()
+}
+
+func (st *state) CommitStateTrie() error {
+	return st.stateTrie.Commit()
 }
 
 func (st *state) GetContractState(address *felt.Felt) (*ContractState, error) {
@@ -117,6 +122,9 @@ func (st *state) SetSlots(address *felt.Felt, slots []Slot) error {
 		if err := storage.Put(slot.Key, slot.Value); err != nil {
 			return err
 		}
+	}
+	if err := storage.Commit(); err != nil {
+		return err
 	}
 	contract.StorageRoot = storage.Root()
 	err = st.manager.PutContractState(contract)

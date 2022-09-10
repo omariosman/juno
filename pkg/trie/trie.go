@@ -18,22 +18,47 @@ type Trie interface {
 	Get(key *felt.Felt) (*felt.Felt, error)
 	Put(key *felt.Felt, value *felt.Felt) error
 	Del(key *felt.Felt) error
+	Commit() error
 }
 
 type TrieManager interface {
 	GetTrieNode(hash *felt.Felt) (TrieNode, error)
 	StoreTrieNode(node TrieNode) error
+	StoreTrieNodeBatch(nodes []TrieNode) error
+}
+
+type memoryMap struct {
+	memory map[felt.Felt]TrieNode
+}
+
+func (m *memoryMap) Put(key *felt.Felt, value TrieNode) {
+	m.memory[*key] = value
+}
+
+func (m *memoryMap) Get(key *felt.Felt) (TrieNode, bool) {
+	node, ok := m.memory[*key]
+	return node, ok
+}
+
+func (m *memoryMap) Clear() {
+	m.memory = make(map[felt.Felt]TrieNode, len(m.memory))
 }
 
 type trie struct {
 	height  int
 	root    *felt.Felt
 	manager TrieManager
+	memory  memoryMap
 }
 
 // New creates a new trie, pass zero as root hash to initialize an empty trie
 func New(manager TrieManager, root *felt.Felt, height int) Trie {
-	return &trie{height, root, manager}
+	return &trie{
+		height:  height,
+		root:    root,
+		manager: manager,
+		memory:  memoryMap{make(map[felt.Felt]TrieNode)},
+	}
 }
 
 // Root returns the hash of the root node of the trie.
@@ -63,6 +88,45 @@ func (t *trie) Del(key *felt.Felt) error {
 	return t.Put(key, new(felt.Felt))
 }
 
+func (t *trie) Commit() error {
+	defer t.memory.Clear()
+	node, ok := t.memory.Get(t.root)
+	if !ok {
+		return errors.New("root not found in memory")
+	}
+	toStore := []TrieNode{node}
+	for i := 0; i < len(toStore); i++ {
+		node := toStore[i]
+		switch n := node.(type) {
+		case *EdgeNode:
+			child, ok := t.memory.Get(n.Bottom())
+			if ok {
+				toStore = append(toStore, child)
+			}
+		case *BinaryNode:
+			leftChild, ok := t.memory.Get(n.LeftH)
+			if ok {
+				toStore = append(toStore, leftChild)
+			}
+			rightChild, ok := t.memory.Get(n.RightH)
+			if ok {
+				toStore = append(toStore, rightChild)
+			}
+
+		default:
+			return errors.New("unexpected node type on memory")
+		}
+	}
+	return t.manager.StoreTrieNodeBatch(toStore)
+}
+
+func (t *trie) getFromMemoryFirst(key *felt.Felt) (TrieNode, error) {
+	if node, ok := t.memory.Get(key); ok {
+		return node, nil
+	}
+	return t.manager.GetTrieNode(key)
+}
+
 func (t *trie) get(path *collections.BitSet, withSiblings bool) (*felt.Felt, []TrieNode, error) {
 	// list of siblings we need to hash with to get to the root
 	var siblings []TrieNode
@@ -71,7 +135,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*felt.Felt, []T
 	}
 	curr := t.root // curr is the current node's hash in the traversal
 	for walked := 0; walked < t.height && curr.Cmp(EmptyNode.Hash()) != 0; {
-		retrieved, err := t.manager.GetTrieNode(curr)
+		retrieved, err := t.getFromMemoryFirst(curr)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -98,7 +162,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*felt.Felt, []T
 					} else if lcp+1 < path.Len()-walked {
 						// notest
 						// sibling is a binary node, we need to retrieve it from the store
-						sibling, err := t.manager.GetTrieNode(node.Bottom())
+						sibling, err := t.getFromMemoryFirst(node.Bottom())
 						if err != nil {
 							return nil, nil, err
 						}
@@ -132,7 +196,7 @@ func (t *trie) get(path *collections.BitSet, withSiblings bool) (*felt.Felt, []T
 			if withSiblings {
 				if path.Len()-walked > 1 {
 					// sibling is a binary node, we need to retrieve it from the store
-					sibling, err := t.manager.GetTrieNode(siblingH)
+					sibling, err := t.getFromMemoryFirst(siblingH)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -188,26 +252,18 @@ func (t *trie) put(path *collections.BitSet, value *felt.Felt, siblings []TrieNo
 			node = &EdgeNode{nil, edgePath, left.Bottom()}
 		} else {
 			node = &BinaryNode{nil, left.Hash(), right.Hash()}
-			if err := t.manager.StoreTrieNode(node); err != nil {
-				return err
-			}
+			t.memory.Put(node.Hash(), node)
 			if i < path.Len()-1 {
 				// don't store leafs
-				if err := t.manager.StoreTrieNode(left); err != nil {
-					return err
-				}
-				if err := t.manager.StoreTrieNode(right); err != nil {
-					return err
-				}
+				t.memory.Put(left.Hash(), left)
+				t.memory.Put(right.Hash(), right)
 			}
 		}
 	}
 
 	if t.height > 0 && node.Hash().Cmp(EmptyNode.Hash()) != 0 {
 		// only store root if it's neither empty nor a leaf
-		if err := t.manager.StoreTrieNode(node); err != nil {
-			return err
-		}
+		t.memory.Put(node.Hash(), node)
 	}
 
 	t.root = node.Hash()

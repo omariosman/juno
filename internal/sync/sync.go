@@ -155,6 +155,8 @@ func (s *Synchronizer) sync() error {
 				s.setStateToLatestRoot()
 				return err
 			}
+			s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber).Debug("State updated")
+
 			prometheus.IncreaseCountStarknetStateSuccess()
 			prometheus.UpdateStarknetSyncTime(time.Since(start).Seconds())
 			s.syncManager.StoreLatestBlockSync(collectedDiff.stateDiff.BlockNumber)
@@ -226,8 +228,7 @@ func (s *Synchronizer) updateState(collectedDiff *CollectorDiff) error {
 			return err
 		}
 	}
-	s.logger.With("Block Number", collectedDiff.stateDiff.BlockNumber).Debug("State updated")
-	return nil
+	return s.state.CommitStateTrie()
 }
 
 func (s *Synchronizer) SetCode(collectedDiff *CollectorDiff, deployedContract *types.DeployedContract) error {

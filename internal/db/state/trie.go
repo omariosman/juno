@@ -78,3 +78,41 @@ func (m *Manager) StoreTrieNode(node trie.TrieNode) error {
 	}
 	return m.stateDatabase.Put(key, rawNode)
 }
+
+func (m *Manager) StoreTrieNodeBatch(nodes []trie.TrieNode) error {
+	return m.stateDatabase.RunTxn(func(txn db.DatabaseOperations) error {
+		for _, node := range nodes {
+			key := node.Hash().ByteSlice()
+			var pbTrieNode isTrieNode_Node
+			switch node := node.(type) {
+			case *trie.BinaryNode:
+				pbTrieNode = &TrieNode_BinaryNode{
+					BinaryNode: &BinaryNode{
+						LeftH:  node.LeftH.ByteSlice(),
+						RightH: node.RightH.ByteSlice(),
+					},
+				}
+			case *trie.EdgeNode:
+				pbTrieNode = &TrieNode_EdgeNode{
+					&EdgeNode{
+						Length: uint32(node.Path().Len()),
+						Path:   node.Path().Bytes(),
+						Bottom: node.Bottom().ByteSlice(),
+					},
+				}
+			default:
+				panic(fmt.Sprintf("unknown node type: %T", node))
+			}
+			rawNode, err := proto.Marshal(&TrieNode{
+				Node: pbTrieNode,
+			})
+			if err != nil {
+				return err
+			}
+			if err := txn.Put(key, rawNode); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
