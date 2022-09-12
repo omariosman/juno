@@ -44,6 +44,10 @@ func (m *memoryMap) Clear() {
 	m.memory = make(map[felt.Felt]TrieNode, len(m.memory))
 }
 
+func (m *memoryMap) Dirty() bool {
+	return len(m.memory) > 0
+}
+
 type trie struct {
 	height  int
 	root    *felt.Felt
@@ -89,6 +93,9 @@ func (t *trie) Del(key *felt.Felt) error {
 }
 
 func (t *trie) Commit() error {
+	if !t.memory.Dirty() {
+		return nil
+	}
 	defer t.memory.Clear()
 	node, ok := t.memory.Get(t.root)
 	if !ok {
