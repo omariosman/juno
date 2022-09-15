@@ -314,7 +314,7 @@ func NewDeployTxn(txn *types.TransactionDeploy) *DeployTxn {
 		DeployTxnProperties: DeployTxnProperties{
 			Version:             "0x0",
 			Type:                TxnDeploy,
-			ContractAddressSalt: "", // TODO: Manage contract address salt
+			ContractAddressSalt: txn.ContractAddressSalt.Hex0x(),
 			ConstructorCalldata: callData,
 		},
 	}
